@@ -1,15 +1,13 @@
 require('dotenv').config();
 
 const express = require('express'); // Express web server framework
-const request = require('request'); // "Request" library
 const cors = require('cors');
 const querystring = require('querystring');
 const cookieParser = require('cookie-parser');
-const { config } = require('dotenv');
-const { response } = require('express');
 const client_id = process.env.CLIENT_ID; // Your client id
 const client_secret = process.env.CLIENT_SECRET; // Your secret
-const redirect_uri = 'http://localhost:8888/callback'; // Your redirect uri
+const redirect_uri = 'http://localhost:8000/callback'; // Your redirect uri
+const axios = require('axios')
 
 const generateRandomString = (length) => {
     let text = '';
@@ -31,7 +29,6 @@ app.use(express.static(__dirname + '/public'))
 app.get('/login', (req, res) => {
     const state = generateRandomString(16);
     res.cookie(stateKey, state);
-
     const scope = 'user-read-private user-read-email playlist-read-private';
     res.redirect('https://accounts.spotify.com/authorize?' +
         querystring.stringify({
@@ -47,7 +44,6 @@ app.get('/callback', (req, res) => {
     const code = req.query.code || null;
     const state = req.query.state || null;
     const storedState = req.cookies ? req.cookies[stateKey] : null;
-    console.log({ code, state, storedState });
 
     if (state === null || state !== storedState) {
         res.redirect('#' +
@@ -60,11 +56,11 @@ app.get('/callback', (req, res) => {
         const authConfig = {
             method: 'post',
             url: 'https://accounts.spotify.com/api/token',
-            data: {
+            data: querystring.stringify({
                 code: code,
                 redirect_uri: redirect_uri,
                 grant_type: 'authorization_code',
-            },
+            }),
             headers: {
                 'Authorization': 'Basic ' + (new Buffer(client_id + ':' + client_secret)).toString('base64')
             },
@@ -72,11 +68,13 @@ app.get('/callback', (req, res) => {
         }
 
         axios(authConfig)
-            .then((error, response, body) => {
-                if (!error && response.statusCode === 200) {
-                    const access_token = body.access_token;
-                    const refresh_token = body.refresh_token;
-
+            .then((response) => {
+                // console.log(response);
+                if (response.status === 200) {
+                    // console.log(response);
+                    const access_token = response.data.access_token;
+                    const refresh_token = response.data.refresh_token;
+                    console.log({ access_token, refresh_token });
                     const authConfig = {
                         method: 'get',
                         url: 'https://api.spotify.com/v1/me',
@@ -85,8 +83,8 @@ app.get('/callback', (req, res) => {
                     }
 
                     axios(authConfig)
-                        .then((error, response, body) => {
-                            console.log(body);
+                        .then((response) => {
+                            // console.log(response);
                         })
                         .catch(error => {
                             console.log(error);
@@ -100,7 +98,8 @@ app.get('/callback', (req, res) => {
                     }
 
                     axios(playlistsConfig)
-                        .then((error, response, body) => {
+                        .then((response) => {
+                            const body = response.data;
                             let publicPlaylists = body.items.filter(item => item.public)
                             // console.log(publicPlaylists);
                             let playlistsData = publicPlaylists.map(item => ({
@@ -112,7 +111,7 @@ app.get('/callback', (req, res) => {
                                 uri: item.uri,
                                 url: item.external_urls.spotify
                             }))
-                            console.log(playlistsData[0].tracks);
+                            console.log(playlistsData[0]);
                         })
                         .catch(error => {
                             console.log(error);
@@ -124,7 +123,6 @@ app.get('/callback', (req, res) => {
                             refresh_token: refresh_token
                         }))
                 }
-
                 else {
                     res.redirect('/#' +
                         querystring.stringify({
@@ -142,17 +140,17 @@ app.get('/refresh_token', (req, res) => {
         method: 'post',
         url: 'https://accounts.spotify.com/api/token',
         headers: { 'Authorization': 'Basic ' + (new Buffer(client_id + ':' + client_secret).toString('base64')) },
-        data: {
+        data: querystring.stringify({
             grant_type: 'refresh_token',
             refresh_token: refresh_token
-        },
+        }),
         json: true
     }
 
     axios(authConfig)
-        .then((error, response, body) => {
-            if (!error && response.statusCode === 200) {
-                const access_token = body.access_token;
+        .then((response) => {
+            if (response.status === 200) {
+                const access_token = response.data.access_token;
                 res.send({
                     'access_token': access_token
                 })

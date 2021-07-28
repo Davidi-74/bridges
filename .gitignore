@@ -1,2 +1,4 @@
 /node_modules
 /authorization_code/.env
+/graphQL_server/.env
+/graphQL_server/node_modules

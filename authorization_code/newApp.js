@@ -49,6 +49,7 @@ app.get('/callback', (req, res) => {
     const state = req.query.state || null;
     const storedState = req.cookies ? req.cookies[stateKey] : null;
     console.log({ code, state, storedState });
+
     if (state === null || state !== storedState) {
         res.redirect('#' +
             querystring.stringify({
@@ -72,6 +73,7 @@ app.get('/callback', (req, res) => {
         }
 
         request.post(authOptions, (error, response, body) => {
+            console.log(response);
             if (!error && response.statusCode === 200) {
                 const access_token = body.access_token;
                 const refresh_token = body.refresh_token;
